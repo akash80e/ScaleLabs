@@ -4,7 +4,8 @@ var cors = require('cors');
 var app = express();
 var mongoose = require('mongoose');
 var product = require('./product');
-var csv = require("csvtojson");
+var csv = require("fast-csv");
+var ObjectId = require('mongodb').ObjectId;
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -28,7 +29,6 @@ router.route('/books').post(function (req, res) {
     var p = new product();
     p.title = req.body.title;
     p.price = req.body.price;
-    p.instock = req.body.instock;
     p.author = req.body.author;
     p.save(function (err) {
         if (err) {
@@ -51,7 +51,7 @@ router.route('/books').get(function (req, res) {
 router.route('/books/:book_id').get(function (req, res) {
 
 
-    product.findById(req.params.book_id, function (err, prod) {
+    product.find({"id":req.params.book_id}, function (err, prod) {
         if (err)
             res.send(err);
         res.json(prod);
@@ -90,8 +90,8 @@ router.route('/books/:title').post(function(req,res){
 
 router.route('/books/:book_id').delete(function (req, res) {
 
-
-    product.remove({ _id: req.param.book_id }, function (err, prod) {
+    //var id = mongoose.Types.ObjectId(req.params.book_id);
+    product.remove({"id":req.params.book_id}, function (err, prod) {
         if (err) {
             res.send(err);
         }
@@ -101,22 +101,30 @@ router.route('/books/:book_id').delete(function (req, res) {
 });
 
 router.route('/upload').post(function(req,res){
-    csv()
-    .fromFile('booklist.csv')
-    .on('csv',(csvRow)=>{ // this func will be called for each row
-        var p = new product();
-        p.id = csvRow[0];
-        p.name = csvRow[1];
-        p.author = csvRow[2];
-        p.price = csvRow[3];
-        p.save(function (err) {
-            if (err)
-                res.send(err);
-
-            res.json({ message: 'Product added!' });
-        });
-        
+    /*if (!req.files)
+        return res.status(400).send('No files were uploaded.');
+     
+    var bookList = req.files.path;*/
+csv
+ .fromPath("booklist.csv")
+ .on("data", function(data){
+    var p = new product();
+     p.title = data[1];
+     p.id = data[0];
+     p.price = data[3];
+     p.author = data[4];
+     p.save(function (err) {
+        if (err) {
+            res.send(err);
+        }
+        console.log("added");
     });
+ })
+ .on("end", function(){
+     console.log("done");
+ });
+ res.json({ message: 'Successfully deleted' });
+
 
 });
 
